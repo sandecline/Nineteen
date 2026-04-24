@@ -1,6 +1,7 @@
-import { _decorator, Component, Node, SpriteFrame } from 'cc';
+import { _decorator, Component, Node, SpriteFrame, find } from 'cc';
 import { BackButtonController } from '../ui/BackButtonController';
-import { InspectLayerController } from '../ui/InspectLayerController';
+import { DialogController, DialogLineInput } from '../ui/DialogController';
+import { InspectLayerController } from './InspectLayerController';
 
 const { ccclass, property } = _decorator;
 
@@ -31,16 +32,52 @@ export class RoomController extends Component {
   @property(InspectLayerController)
   public inspect: InspectLayerController | null = null;
 
+  @property(DialogController)
+  public dialog: DialogController | null = null;
+
+  @property(Node)
+  public interactionRoot: Node | null = null;
+
   // ===== State =====
   private currentWall: WallId | null = null;
   private inspectOpen = false;
 
   start() {
+    this.tryAutoBindInspect();
+    this.tryAutoBindDialog();
+
     // Keep back-stack consistent even if InspectLayer is closed by mask/close button
     if (this.inspect) {
       this.inspect.onClosed = () => this.onInspectClosedExternally();
     }
     this.showOverview();
+  }
+
+  private tryAutoBindDialog() {
+    if (this.dialog) return;
+
+    const dialogNode =
+      find('Canvas/DialogLayer') ??
+      find('DialogLayer');
+
+    this.dialog = dialogNode?.getComponent(DialogController) ?? null;
+    if (!this.dialog) {
+      console.warn('[RoomController] DialogController not assigned and auto-bind failed.');
+    }
+  }
+
+  private tryAutoBindInspect() {
+    if (this.inspect) return;
+
+    const inspectNode =
+      find('Canvas/Level1Root/InspectLayer') ??
+      find('Canvas/InspectLayer') ??
+      find('InspectLayer');
+
+    this.inspect = inspectNode?.getComponent(InspectLayerController) ?? null;
+    if (!this.inspect) {
+      console.warn('[RoomController] InspectLayerController not assigned and auto-bind failed.');
+    }
   }
 
   // ===== Navigation: Overview <-> Walls =====
@@ -93,16 +130,23 @@ export class RoomController extends Component {
   // ===== Inspect Layer (2nd-level sub-scene) =====
   /** Open inspect layer with image and optional text. */
   public openInspect(spriteFrame?: SpriteFrame, description?: string) {
-    if (!this.inspect || !this.back) return;
+    if (!this.inspect) return;
+
+    if (this.inspectOpen) {
+      this.inspect.show(spriteFrame, description);
+      return;
+    }
 
     this.inspectOpen = true;
     this.inspect.show(spriteFrame, description);
 
     // Push one more "back" layer: close inspect
-    this.back.push(() => {
-      // Use inspect.hide() so that onClosed triggers and stack stays consistent
-      this.inspect?.hide();
-    });
+    if (this.back) {
+      this.back.push(() => {
+        // Use inspect.hide() so that onClosed triggers and stack stays consistent
+        this.inspect?.hide();
+      });
+    }
   }
 
   /** Convenience method for Button ClickEvents: open inspect with no args (placeholder). */
@@ -131,5 +175,34 @@ export class RoomController extends Component {
     if (this.currentWall) {
       this.back?.push(() => this.showOverview());
     }
+  }
+
+  // ===== Dialog integration =====
+
+  /**
+   * 播放对话，期间自动禁用 interactionRoot 防止交互冲突。
+   * 对话结束后自动恢复 interactionRoot。
+   */
+  public playDialogAsync(lines: DialogLineInput[]): Promise<void> {
+    return new Promise((resolve) => {
+      if (!this.dialog) return resolve();
+
+      // 屏蔽交互
+      if (this.interactionRoot) this.interactionRoot.active = false;
+
+      this.dialog.play({
+        lines,
+        onFinished: () => {
+          // 恢复交互
+          if (this.interactionRoot) this.interactionRoot.active = true;
+          resolve();
+        },
+      });
+    });
+  }
+
+  /** 判断当前是否有对话在播放 */
+  public isDialogPlaying(): boolean {
+    return this.dialog?.isPlaying() ?? false;
   }
 }

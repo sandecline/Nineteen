@@ -81,7 +81,7 @@ private async runSequence() {
   if (this.elevatorRoot) this.elevatorRoot.active = false;
   if (this.level1Root) this.level1Root.active = true;
 
-  // 7) 开启交互
+  // 6) 开启交互
   if (this.interactionRoot) this.interactionRoot.active = true;
 }
 

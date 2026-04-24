@@ -8,6 +8,7 @@ import {
   EventTouch,
   UIOpacity,
   tween,
+  SystemEvent,
 } from 'cc';
 const { ccclass, property } = _decorator;
 
@@ -49,6 +50,10 @@ export class DialogController extends Component {
   @property
   public boxOpacity = 180;
 
+  /** 触摸区域节点（可选：用于接收点击事件，默认使用 dialogBox） */
+  @property(Node)
+  public touchArea: Node | null = null;
+
   private lines: DialogLine[] = [];
   private index = 0;
   private onFinished: (() => void) | null = null;
@@ -66,13 +71,19 @@ export class DialogController extends Component {
   private indicatorTween: any = null;
 
   onEnable() {
-    input.on(Input.EventType.TOUCH_END, this.onTouchEnd, this);
+    // 使用 SystemEvent 捕获全局触摸事件（Cocos Creator 3.x 兼容）
+    SystemEvent.EventType.TOUCH_END && input.on(Input.EventType.TOUCH_END, this.onTouchEnd, this);
   }
 
   onDisable() {
     input.off(Input.EventType.TOUCH_END, this.onTouchEnd, this);
     this.stopIndicatorBlink();
     this.unschedule(this.tickTyping);
+  }
+
+  /** 是否正在播放对话 */
+  public isPlaying(): boolean {
+    return this.playing;
   }
 
   /** 开始播放 */
@@ -95,6 +106,11 @@ export class DialogController extends Component {
 
     // 显示对话层
     this.node.active = true;
+
+    // 启用触摸区域
+    if (this.touchArea) {
+      this.touchArea.active = true;
+    }
 
     // 对话框淡入
     if (this.dialogBox) {
@@ -191,6 +207,7 @@ export class DialogController extends Component {
   };
 
   private onTouchEnd(_e: EventTouch) {
+    console.log('[DialogController] onTouchEnd called, playing:', this.playing, 'typing:', this.typing);
     if (!this.playing) return;
 
     // 打字中：点击=立刻显示整句（不进入下一句）
@@ -204,6 +221,7 @@ export class DialogController extends Component {
 
     // 当前句已完整显示：点击=下一句
     this.index++;
+    console.log('[DialogController] Moving to index:', this.index, '/', this.lines.length);
     this.showCurrentLine();
   }
 
@@ -256,6 +274,11 @@ export class DialogController extends Component {
     this.typing = false;
     this.unschedule(this.tickTyping);
     this.hideIndicator();
+
+    // 禁用触摸区域
+    if (this.touchArea) {
+      this.touchArea.active = false;
+    }
 
     if (this.dialogBox) {
       const op = this.dialogBox.getComponent(UIOpacity);
