@@ -1,24 +1,14 @@
+# Cocos Creator 生成文件与本地依赖
+**/library/
+**/temp/
+**/local/
+**/build/
+**/profiles/
+**/native/
+**/node_modules/
+**/.vscode/
+**/.idea/
 
-#///////////////////////////
-# Cocos Creator 3D Project
-#///////////////////////////
-library/
-temp/
-local/
-build/
-profiles/
-native
-#//////////////////////////
-# NPM
-#//////////////////////////
-node_modules/
-
-#//////////////////////////
-# VSCode
-#//////////////////////////
-.vscode/
-
-#//////////////////////////
-# WebStorm
-#//////////////////////////
-.idea/
+# 本地环境文件
+**/.env
+**/.env.*
